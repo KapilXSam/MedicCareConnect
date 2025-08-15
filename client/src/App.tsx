@@ -1,10 +1,11 @@
 import { Switch, Route } from "wouter";
-import { queryClient } from "./lib/queryClient";
+import { queryClient, apiRequest } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { useState, createContext, useContext } from "react";
+import { useState, createContext, useContext, useEffect } from "react";
 import type { User } from "@shared/schema";
+import { supabase } from "./lib/supabase";
 
 import NotFound from "@/pages/not-found";
 import Home from "@/pages/home";
@@ -52,8 +53,20 @@ function Router() {
 function App() {
   const [user, setUser] = useState<User | null>(null);
 
-  // Add debug to check what we're providing
-  console.log("App component - user:", user);
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (session?.user) {
+        const userProfile = await apiRequest("GET", `/api/users/${session.user.id}`).then(res => res.json());
+        setUser(userProfile);
+      } else {
+        setUser(null);
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, []);
 
   return (
     <QueryClientProvider client={queryClient}>

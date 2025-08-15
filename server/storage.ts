@@ -13,29 +13,29 @@ import { eq, and, desc, asc, sql } from "drizzle-orm";
 
 export interface IStorage {
   // Users
-  getUser(id: number): Promise<User | undefined>;
+  getUser(id: string): Promise<User | undefined>;
   getUserByEmail(email: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
-  updateUser(id: number, updates: Partial<InsertUser>): Promise<User | undefined>;
+  updateUser(id: string, updates: Partial<InsertUser>): Promise<User | undefined>;
 
   // Doctor Profiles
-  getDoctorProfile(userId: number): Promise<DoctorProfile | undefined>;
+  getDoctorProfile(userId: string): Promise<DoctorProfile | undefined>;
   createDoctorProfile(profile: InsertDoctorProfile): Promise<DoctorProfile>;
-  updateDoctorProfile(userId: number, updates: Partial<InsertDoctorProfile>): Promise<DoctorProfile | undefined>;
+  updateDoctorProfile(userId: string, updates: Partial<InsertDoctorProfile>): Promise<DoctorProfile | undefined>;
   getAvailableDoctors(): Promise<(DoctorProfile & { user: User })[]>;
   getPendingDoctorVerifications(): Promise<(DoctorProfile & { user: User })[]>;
 
   // Patient Profiles
-  getPatientProfile(userId: number): Promise<PatientProfile | undefined>;
+  getPatientProfile(userId: string): Promise<PatientProfile | undefined>;
   createPatientProfile(profile: InsertPatientProfile): Promise<PatientProfile>;
-  updatePatientProfile(userId: number, updates: Partial<InsertPatientProfile>): Promise<PatientProfile | undefined>;
+  updatePatientProfile(userId: string, updates: Partial<InsertPatientProfile>): Promise<PatientProfile | undefined>;
 
   // Consultations
   getConsultation(id: number): Promise<(Consultation & { patient: User; doctor: User }) | undefined>;
   createConsultation(consultation: InsertConsultation): Promise<Consultation>;
   updateConsultation(id: number, updates: Partial<InsertConsultation>): Promise<Consultation | undefined>;
-  getConsultationsByPatient(patientId: number): Promise<(Consultation & { doctor: User })[]>;
-  getConsultationsByDoctor(doctorId: number): Promise<(Consultation & { patient: User })[]>;
+  getConsultationsByPatient(patientId: string): Promise<(Consultation & { doctor: User })[]>;
+  getConsultationsByDoctor(doctorId: string): Promise<(Consultation & { patient: User })[]>;
   getPendingConsultations(): Promise<(Consultation & { patient: User; doctor: User })[]>;
 
   // Pharmacies
@@ -67,7 +67,7 @@ export interface IStorage {
   // Transport Bookings
   createTransportBooking(booking: InsertTransportBooking): Promise<TransportBooking>;
   getTransportBooking(id: number): Promise<(TransportBooking & { patient: User; provider: TransportProvider }) | undefined>;
-  getPatientTransportBookings(patientId: number): Promise<(TransportBooking & { provider: TransportProvider })[]>;
+  getPatientTransportBookings(patientId: string): Promise<(TransportBooking & { provider: TransportProvider })[]>;
   getProviderTransportBookings(providerId: number): Promise<(TransportBooking & { patient: User })[]>;
   updateTransportBooking(id: number, updates: Partial<InsertTransportBooking>): Promise<TransportBooking | undefined>;
   getPendingTransportBookings(): Promise<(TransportBooking & { patient: User; provider: TransportProvider })[]>;
@@ -82,7 +82,7 @@ export interface IStorage {
 }
 
 export class DatabaseStorage implements IStorage {
-  async getUser(id: number): Promise<User | undefined> {
+  async getUser(id: string): Promise<User | undefined> {
     const [user] = await db.select().from(users).where(eq(users.id, id));
     return user || undefined;
   }
@@ -97,12 +97,12 @@ export class DatabaseStorage implements IStorage {
     return user;
   }
 
-  async updateUser(id: number, updates: Partial<InsertUser>): Promise<User | undefined> {
+  async updateUser(id: string, updates: Partial<InsertUser>): Promise<User | undefined> {
     const [user] = await db.update(users).set(updates).where(eq(users.id, id)).returning();
     return user || undefined;
   }
 
-  async getDoctorProfile(userId: number): Promise<DoctorProfile | undefined> {
+  async getDoctorProfile(userId: string): Promise<DoctorProfile | undefined> {
     const [profile] = await db.select().from(doctorProfiles).where(eq(doctorProfiles.userId, userId));
     return profile || undefined;
   }
@@ -112,7 +112,7 @@ export class DatabaseStorage implements IStorage {
     return doctorProfile;
   }
 
-  async updateDoctorProfile(userId: number, updates: Partial<InsertDoctorProfile>): Promise<DoctorProfile | undefined> {
+  async updateDoctorProfile(userId: string, updates: Partial<InsertDoctorProfile>): Promise<DoctorProfile | undefined> {
     const [profile] = await db.update(doctorProfiles).set(updates).where(eq(doctorProfiles.userId, userId)).returning();
     return profile || undefined;
   }
@@ -155,7 +155,7 @@ export class DatabaseStorage implements IStorage {
     .where(eq(users.isVerified, false));
   }
 
-  async getPatientProfile(userId: number): Promise<PatientProfile | undefined> {
+  async getPatientProfile(userId: string): Promise<PatientProfile | undefined> {
     const [profile] = await db.select().from(patientProfiles).where(eq(patientProfiles.userId, userId));
     return profile || undefined;
   }
@@ -165,7 +165,7 @@ export class DatabaseStorage implements IStorage {
     return patientProfile;
   }
 
-  async updatePatientProfile(userId: number, updates: Partial<InsertPatientProfile>): Promise<PatientProfile | undefined> {
+  async updatePatientProfile(userId: string, updates: Partial<InsertPatientProfile>): Promise<PatientProfile | undefined> {
     const [profile] = await db.update(patientProfiles).set(updates).where(eq(patientProfiles.userId, userId)).returning();
     return profile || undefined;
   }
@@ -224,7 +224,7 @@ export class DatabaseStorage implements IStorage {
     return consultation || undefined;
   }
 
-  async getConsultationsByPatient(patientId: number): Promise<(Consultation & { doctor: User })[]> {
+  async getConsultationsByPatient(patientId: string): Promise<(Consultation & { doctor: User })[]> {
     return await db.select({
       id: consultations.id,
       patientId: consultations.patientId,
@@ -247,7 +247,7 @@ export class DatabaseStorage implements IStorage {
     .orderBy(desc(consultations.createdAt));
   }
 
-  async getConsultationsByDoctor(doctorId: number): Promise<(Consultation & { patient: User })[]> {
+  async getConsultationsByDoctor(doctorId: string): Promise<(Consultation & { patient: User })[]> {
     return await db.select({
       id: consultations.id,
       patientId: consultations.patientId,
@@ -501,7 +501,7 @@ export class DatabaseStorage implements IStorage {
     return booking || undefined;
   }
 
-  async getPatientTransportBookings(patientId: number): Promise<(TransportBooking & { provider: TransportProvider })[]> {
+  async getPatientTransportBookings(patientId: string): Promise<(TransportBooking & { provider: TransportProvider })[]> {
     return await db.select({
       id: transportBookings.id,
       patientId: transportBookings.patientId,
