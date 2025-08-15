@@ -6,13 +6,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { useMutation } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/App";
 import Header from "@/components/layout/header";
 import { Heart, Stethoscope } from "lucide-react";
+import { supabase } from "@/lib/supabase";
+import { apiRequest } from "@/lib/queryClient";
 
 interface AuthData {
   email: string;
@@ -22,7 +21,7 @@ interface AuthData {
 }
 
 interface DoctorProfileData {
-  userId: number;
+  userId: string;
   licenseNumber: string;
   specialization: string;
   experience: number;
@@ -55,49 +54,69 @@ export default function Auth() {
     consultationFee: "0",
   });
 
-  const loginMutation = useMutation({
-    mutationFn: async (data: AuthData) => {
-      const res = await apiRequest("POST", "/api/auth/login", data);
-      return res.json();
-    },
-    onSuccess: (data) => {
-      setUser(data.user);
+  const [loading, setLoading] = useState(false);
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email: loginData.email,
+      password: loginData.password,
+    });
+
+    if (error) {
+      toast({
+        title: "Login failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    } else if (data.user) {
+      const user = await apiRequest("GET", `/api/users/${data.user.id}`).then(res => res.json());
+      setUser(user);
       toast({
         title: "Login successful",
         description: "Welcome back!",
       });
-      
-      if (data.user.role === "doctor") {
+      if (user.role === "doctor") {
         setLocation("/doctor-dashboard");
-      } else if (data.user.role === "admin") {
+      } else if (user.role === "admin") {
         setLocation("/admin");
       } else {
         setLocation("/patient-dashboard");
       }
-    },
-    onError: (error: any) => {
+    }
+    setLoading(false);
+  };
+
+  const handleRegister = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    const { data, error } = await supabase.auth.signUp({
+      email: registerData.email,
+      password: registerData.password,
+      options: {
+        data: {
+          name: registerData.name,
+          role: registerData.role,
+        }
+      }
+    });
+
+    if (error) {
       toast({
-        title: "Login failed",
-        description: error.message || "Invalid credentials",
+        title: "Registration failed",
+        description: error.message,
         variant: "destructive",
       });
-    },
-  });
-
-  const registerMutation = useMutation({
-    mutationFn: async (data: AuthData) => {
-      const res = await apiRequest("POST", "/api/auth/register", data);
-      return res.json();
-    },
-    onSuccess: async (data) => {
-      setUser(data.user);
+    } else if (data.user) {
+      const user = await apiRequest("POST", "/api/auth/register", { ...registerData, id: data.user.id }).then(res => res.json());
+      setUser(user);
       toast({
         title: "Registration successful",
-        description: "Welcome to MediHelp!",
+        description: "Welcome to MediHelp! Please check your email to verify your account.",
       });
 
-      if (data.user.role === "doctor") {
-        // Create doctor profile
+      if (registerData.role === "doctor") {
         try {
           await apiRequest("POST", "/api/doctors/profile", {
             ...doctorProfile,
@@ -114,24 +133,8 @@ export default function Auth() {
       } else {
         setLocation("/patient-dashboard");
       }
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Registration failed",
-        description: error.message || "Registration failed",
-        variant: "destructive",
-      });
-    },
-  });
-
-  const handleLogin = (e: React.FormEvent) => {
-    e.preventDefault();
-    loginMutation.mutate(loginData);
-  };
-
-  const handleRegister = (e: React.FormEvent) => {
-    e.preventDefault();
-    registerMutation.mutate(registerData);
+    }
+    setLoading(false);
   };
 
   return (

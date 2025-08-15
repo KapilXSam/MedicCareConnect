@@ -1,12 +1,13 @@
-import { pgTable, text, serial, integer, boolean, timestamp, decimal, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, timestamp, decimal, jsonb, pgSchema, uuid } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
+export const authSchema = pgSchema("auth");
+
 export const users = pgTable("users", {
-  id: serial("id").primaryKey(),
+  id: uuid("id").primaryKey(),
   email: text("email").notNull().unique(),
-  password: text("password").notNull(),
   name: text("name").notNull(),
   phone: text("phone"),
   role: text("role", { enum: ["patient", "doctor", "admin"] }).notNull().default("patient"),
@@ -16,7 +17,7 @@ export const users = pgTable("users", {
 
 export const doctorProfiles = pgTable("doctor_profiles", {
   id: serial("id").primaryKey(),
-  userId: integer("user_id").references(() => users.id).notNull(),
+  userId: uuid("user_id").references(() => users.id).notNull(),
   licenseNumber: text("license_number").notNull(),
   specialization: text("specialization").notNull(),
   experience: integer("experience").notNull(),
@@ -29,7 +30,7 @@ export const doctorProfiles = pgTable("doctor_profiles", {
 
 export const patientProfiles = pgTable("patient_profiles", {
   id: serial("id").primaryKey(),
-  userId: integer("user_id").references(() => users.id).notNull(),
+  userId: uuid("user_id").references(() => users.id).notNull(),
   dateOfBirth: timestamp("date_of_birth"),
   gender: text("gender"),
   location: text("location"),
@@ -39,8 +40,8 @@ export const patientProfiles = pgTable("patient_profiles", {
 
 export const consultations = pgTable("consultations", {
   id: serial("id").primaryKey(),
-  patientId: integer("patient_id").references(() => users.id).notNull(),
-  doctorId: integer("doctor_id").references(() => users.id).notNull(),
+  patientId: uuid("patient_id").references(() => users.id).notNull(),
+  doctorId: uuid("doctor_id").references(() => users.id).notNull(),
   status: text("status", { enum: ["pending", "active", "completed", "cancelled"] }).notNull().default("pending"),
   type: text("type", { enum: ["emergency", "regular"] }).notNull().default("regular"),
   symptoms: text("symptoms"),
@@ -95,7 +96,7 @@ export const donations = pgTable("donations", {
 
 export const donationRequests = pgTable("donation_requests", {
   id: serial("id").primaryKey(),
-  patientId: integer("patient_id").references(() => users.id).notNull(),
+  patientId: uuid("patient_id").references(() => users.id).notNull(),
   type: text("type", { enum: ["consultation", "medicine"] }).notNull(),
   amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
   reason: text("reason").notNull(),
@@ -106,8 +107,8 @@ export const donationRequests = pgTable("donation_requests", {
 export const ratings = pgTable("ratings", {
   id: serial("id").primaryKey(),
   consultationId: integer("consultation_id").references(() => consultations.id).notNull(),
-  patientId: integer("patient_id").references(() => users.id).notNull(),
-  doctorId: integer("doctor_id").references(() => users.id).notNull(),
+  patientId: uuid("patient_id").references(() => users.id).notNull(),
+  doctorId: uuid("doctor_id").references(() => users.id).notNull(),
   rating: integer("rating").notNull(),
   review: text("review"),
   createdAt: timestamp("created_at").defaultNow(),
@@ -135,7 +136,7 @@ export const transportProviders = pgTable("transport_providers", {
 
 export const transportBookings = pgTable("transport_bookings", {
   id: serial("id").primaryKey(),
-  patientId: integer("patient_id").references(() => users.id).notNull(),
+  patientId: uuid("patient_id").references(() => users.id).notNull(),
   providerId: integer("provider_id").references(() => transportProviders.id).notNull(),
   type: text("type", { enum: ["ambulance", "cab", "motorbike"] }).notNull(),
   pickupLocation: text("pickup_location").notNull(),

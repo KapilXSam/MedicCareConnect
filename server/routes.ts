@@ -3,13 +3,19 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertUserSchema, insertDoctorProfileSchema, insertPatientProfileSchema, insertConsultationSchema, insertDonationSchema, insertDonationRequestSchema, insertRatingSchema, insertTransportProviderSchema, insertTransportBookingSchema } from "@shared/schema";
 import { z } from "zod";
+import { createClient } from "@supabase/supabase-js";
+import "dotenv/config";
+
+const supabase = createClient(
+  process.env.SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
 
 const authSchema = z.object({
   email: z.string().email(),
   password: z.string().min(6),
 });
 
-const loginSchema = authSchema;
 const registerSchema = authSchema.extend({
   name: z.string().min(1),
   role: z.enum(["patient", "doctor"]),
@@ -20,39 +26,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/auth/register", async (req, res) => {
     try {
       const data = registerSchema.parse(req.body);
-      
-      // Check if user exists
-      const existingUser = await storage.getUserByEmail(data.email);
-      if (existingUser) {
-        return res.status(400).json({ message: "User already exists" });
+
+      const { data: authData, error } = await supabase.auth.admin.createUser({
+        email: data.email,
+        password: data.password,
+        email_confirm: true,
+      });
+
+      if (error) {
+        return res.status(400).json({ message: error.message });
       }
 
-      // Create user
-      const user = await storage.createUser(data);
+      // Create user in our database
+      const user = await storage.createUser({
+        id: authData.user.id,
+        ...data,
+      });
       
       // Create profile based on role
       if (data.role === "patient") {
         await storage.createPatientProfile({ userId: user.id });
       }
 
-      res.json({ user: { ...user, password: undefined } });
+      res.json({ user });
     } catch (error) {
       res.status(400).json({ message: error instanceof Error ? error.message : "Registration failed" });
-    }
-  });
-
-  app.post("/api/auth/login", async (req, res) => {
-    try {
-      const data = loginSchema.parse(req.body);
-      
-      const user = await storage.getUserByEmail(data.email);
-      if (!user || user.password !== data.password) {
-        return res.status(401).json({ message: "Invalid credentials" });
-      }
-
-      res.json({ user: { ...user, password: undefined } });
-    } catch (error) {
-      res.status(400).json({ message: error instanceof Error ? error.message : "Login failed" });
     }
   });
 
@@ -78,13 +76,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.put("/api/doctors/:userId/availability", async (req, res) => {
     try {
-      const userId = parseInt(req.params.userId);
+      const userId = req.params.userId;
       const { isAvailable } = req.body;
       
       const profile = await storage.updateDoctorProfile(userId, { isAvailable });
       res.json(profile);
     } catch (error) {
       res.status(400).json({ message: "Failed to update availability" });
+    }
+  });
+
+  app.get("/api/users/:id", async (req, res) => {
+    try {
+      const user = await storage.getUser(req.params.id);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      res.json(user);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch user" });
     }
   });
 
